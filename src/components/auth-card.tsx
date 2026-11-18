@@ -2,16 +2,21 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { BrandMark } from '@/components/brand-logo'
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F6F7FB] px-4 py-10">
       <div className="w-full max-w-[420px]">
         <div className="mb-6 flex items-center justify-center gap-2.5">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-[#5A6ACF] to-[#8B5CF6] text-base font-bold text-white">
-            简
-          </div>
+          <BrandMark
+            size="md"
+            className="shadow-[0_6px_18px_rgba(90,106,207,.25)]"
+          />
           <span className="text-xl font-extrabold tracking-tight text-[#14152B]">智能简历</span>
+          <span className="rounded-md bg-[#EEF0FF] px-1.5 py-0.5 text-[11px] font-bold tracking-wider text-[#5A6ACF] uppercase">
+            AI
+          </span>
         </div>
         {children}
       </div>

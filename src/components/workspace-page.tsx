@@ -3,20 +3,64 @@
 import { useChat } from '@ai-sdk/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DefaultChatTransport, type UIMessage } from 'ai'
-import { Download, MessageSquare, RotateCcw, Sparkles } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { toast } from 'sonner'
-import { AppFrame } from '@/components/app-frame'
-import { ResumePreview } from '@/components/resume-preview'
+import { AgentChatPane } from '@/components/agent-chat-pane'
+import { AppFrame, AppFrameNavButtons } from '@/components/app-frame'
+import {
+  ResumeArtifactPane,
+  type ArtifactMode,
+  type SaveStatus,
+} from '@/components/resume-artifact-pane'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import type { TemplateId } from '@/lib/constants'
+import { takePendingPrompt } from '@/lib/pending-prompt'
 import type { ModelConfigPublic, ResumeDetail } from '@/lib/types'
 import { cn } from '@/lib/utils'
+
+const RIGHT_PANE_WIDTH_KEY = 'workspace-right-pane-width'
+const MIN_CHAT_PANE = 360
+const MIN_RIGHT_PANE = 320
+const DEFAULT_RIGHT_PANE = 560
+const RESIZE_STEP = 24
+
+function readRightPaneWidth(): number {
+  try {
+    const stored = window.localStorage.getItem(RIGHT_PANE_WIDTH_KEY)
+    const parsed = stored ? Number(stored) : Number.NaN
+    if (Number.isFinite(parsed) && parsed >= MIN_RIGHT_PANE) return parsed
+  } catch {
+    // private mode / quota
+  }
+  return DEFAULT_RIGHT_PANE
+}
+
+function persistRightPaneWidth(width: number) {
+  try {
+    window.localStorage.setItem(RIGHT_PANE_WIDTH_KEY, String(Math.round(width)))
+  } catch {
+    // private mode / quota
+  }
+}
+
+function clampRightPaneWidth(next: number, containerWidth: number) {
+  const maxRight = Math.max(MIN_RIGHT_PANE, containerWidth - MIN_CHAT_PANE)
+  return Math.min(maxRight, Math.max(MIN_RIGHT_PANE, next))
+}
 
 function toUiMessages(detail: ResumeDetail): UIMessage[] {
   return detail.messages.map((message) => ({
@@ -26,8 +70,104 @@ function toUiMessages(detail: ResumeDetail): UIMessage[] {
   }))
 }
 
-function messageText(message: UIMessage) {
-  return message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
+function hasRunningWriteBodyTool(messages: UIMessage[]): boolean {
+  const last = messages.at(-1)
+  if (!last || last.role !== 'assistant') return false
+  return last.parts.some((part) => {
+    const candidate = part as { type?: string; state?: string }
+    return (
+      candidate.type === 'tool-writeResumeBody' &&
+      (candidate.state === 'input-streaming' ||
+        candidate.state === 'input-available')
+    )
+  })
+}
+
+function WorkspaceSkeleton() {
+  return (
+    <div
+      className="flex h-full w-full overflow-hidden bg-[#F6F7FB]"
+      aria-label="正在加载简历工作台"
+    >
+      {/* 中栏 Agent 对话骨架屏 */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#E7E9F3] bg-white px-4 sm:px-5">
+          <div className="flex items-center gap-2.5">
+            <AppFrameNavButtons />
+            <Skeleton className="h-5 w-40 rounded-md" />
+            <Skeleton className="hidden h-5 w-16 rounded-full sm:block" />
+          </div>
+          <Skeleton className="h-8 w-24 rounded-lg" />
+        </div>
+
+        <div className="flex-1 overflow-hidden px-4 py-8 sm:px-6">
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+            <div className="flex justify-end">
+              <Skeleton className="h-11 w-64 rounded-2xl" />
+            </div>
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <div className="flex-1 space-y-2.5 rounded-2xl border border-[#E7E9F3] bg-white p-4">
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Skeleton className="h-10 w-52 rounded-2xl" />
+            </div>
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <div className="flex-1 space-y-2 rounded-2xl border border-[#E7E9F3] bg-white p-4">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="shrink-0 px-4 pb-4 sm:px-6">
+          <div className="mx-auto w-full max-w-2xl rounded-2xl border border-[#E7E9F3] bg-white p-3.5">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <div className="mt-3 flex items-center justify-between">
+              <Skeleton className="h-5 w-32 rounded-full" />
+              <Skeleton className="size-8 rounded-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 右栏简历预览/源码骨架屏 */}
+      <div className="hidden h-full w-[48%] max-w-[780px] min-w-[420px] flex-col border-l border-[#E7E9F3] bg-[#F6F7FB] lg:flex">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#E7E9F3] bg-white px-5">
+          <Skeleton className="h-8 w-40 rounded-xl" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-24 rounded-lg" />
+            <Skeleton className="h-8 w-20 rounded-lg" />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-hidden p-6">
+          <div className="mx-auto h-full max-w-[740px] rounded-2xl border border-[#E7E9F3] bg-white p-8">
+            <div className="flex flex-col items-center gap-2 border-b border-[#F1F2F8] pb-5">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-3.5 w-64" />
+            </div>
+            <div className="mt-6 space-y-6">
+              {[0, 1, 2].map((section) => (
+                <div key={section} className="space-y-2.5">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3.5 w-11/12" />
+                  <Skeleton className="h-3.5 w-3/4" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function WorkspacePage() {
@@ -40,32 +180,60 @@ export default function WorkspacePage() {
 
   if (resume.isLoading) {
     return (
-      <AppFrame title="工作区">
-        <p className="text-sm text-[#8C8FA8]">加载中…</p>
-      </AppFrame>
-    )
-  }
-  if (resume.error || !resume.data) {
-    return (
-      <AppFrame title="工作区">
-        <p className="text-sm text-[#B42318]">{resume.error?.message ?? '简历不存在'}</p>
+      <AppFrame fullBleed>
+        <WorkspaceSkeleton />
       </AppFrame>
     )
   }
 
-  return <WorkspaceReady id={id} detail={resume.data} />
+  if (resume.error || !resume.data) {
+    return (
+      <AppFrame fullBleed>
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-[#FEF3F2] text-[#B42318]">
+            <AlertCircle className="size-6" />
+          </div>
+          <p className="text-[15px] font-bold text-[#14152B]">
+            {resume.error?.message ?? '未找到这份简历'}
+          </p>
+          <p className="text-[13px] text-[#8C8FA8]">
+            该简历可能已被删除或无权访问，可从左侧选择其它简历或回到首页新建。
+          </p>
+          <Link href="/" className="mt-1">
+            <Button variant="outline" className="h-9 rounded-xl bg-white">
+              返回新对话首页
+            </Button>
+          </Link>
+        </div>
+      </AppFrame>
+    )
+  }
+
+  return <WorkspaceReady key={id} id={id} detail={resume.data} />
 }
 
 function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
+  const initialMode: ArtifactMode =
+    searchParams.get('mode') === 'source' ? 'source' : 'preview'
+
   const [title, setTitle] = useState(detail.title)
   const [body, setBody] = useState(detail.body)
   const [templateId, setTemplateId] = useState<TemplateId>(detail.lastTemplateId)
-  const [chatOpen, setChatOpen] = useState(searchParams.get('intent') === 'create')
-  const [draft, setDraft] = useState('')
-  const [pane, setPane] = useState<'chat' | 'edit' | 'preview'>('edit')
-  const skipSave = useRef(true)
+  const [artifactMode, setArtifactMode] = useState<ArtifactMode>(initialMode)
+  const [rightPaneOpen, setRightPaneOpen] = useState(true)
+  const [rightPaneWidth, setRightPaneWidth] = useState(readRightPaneWidth)
+  const [resizing, setResizing] = useState(false)
+  const splitRef = useRef<HTMLDivElement>(null)
+  const [mobileTab, setMobileTab] = useState<'chat' | 'artifact'>(
+    searchParams.get('mode') === 'source' ? 'artifact' : 'chat',
+  )
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [exportingFormat, setExportingFormat] = useState<'pdf' | 'docx' | null>(
+    null,
+  )
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const modelConfig = useQuery({
     queryKey: ['model-config'],
@@ -73,25 +241,34 @@ function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
   })
 
   useEffect(() => {
-    skipSave.current = true
-    setTitle(detail.title)
-    setBody(detail.body)
-    setTemplateId(detail.lastTemplateId)
-  }, [detail.title, detail.body, detail.lastTemplateId])
-
-  useEffect(() => {
-    if (skipSave.current) {
-      skipSave.current = false
-      return
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
     }
-    const handle = setTimeout(() => {
+  }, [])
+
+  function handleBodyChange(nextBody: string) {
+    setBody(nextBody)
+    setSaveStatus('saving')
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+    }
+    saveTimerRef.current = setTimeout(() => {
       void api(`/api/resumes/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ body }),
-      }).catch((err: Error) => toast.error(err.message))
+        body: JSON.stringify({ body: nextBody }),
+      })
+        .then(() => {
+          setSaveStatus('saved')
+          void queryClient.invalidateQueries({ queryKey: ['resumes'] })
+        })
+        .catch((err: Error) => {
+          setSaveStatus('idle')
+          toast.error(err.message)
+        })
     }, 600)
-    return () => clearTimeout(handle)
-  }, [body, id])
+  }
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/resumes/${id}/messages` }),
@@ -103,18 +280,47 @@ function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
     messages: toUiMessages(detail),
     transport,
     onFinish: () => {
-      void queryClient.invalidateQueries({ queryKey: ['resume', id] })
+      void queryClient
+        .fetchQuery({
+          queryKey: ['resume', id],
+          queryFn: () => api<ResumeDetail>(`/api/resumes/${id}`),
+        })
+        .then((fresh) => {
+          setBody(fresh.body)
+          setTitle(fresh.title)
+          setTemplateId(fresh.lastTemplateId)
+        })
+        .catch(() => {
+          void queryClient.invalidateQueries({ queryKey: ['resume', id] })
+        })
+      void queryClient.invalidateQueries({ queryKey: ['resumes'] })
     },
     onError: (err) => toast.error(err.message),
   })
 
+  // 如果是从首页欢迎框带着首条消息新建跳转过来的简历，自动触发首条对话
+  const { sendMessage } = chat
+  useEffect(() => {
+    const pending = takePendingPrompt(id)
+    if (pending) {
+      void sendMessage({ text: pending })
+    }
+  }, [id, sendMessage])
+
   const restore = useMutation({
     mutationFn: () =>
-      api<{ body: string; previousBody: string }>(`/api/resumes/${id}/restore`, { method: 'POST' }),
+      api<{ body: string; previousBody: string }>(
+        `/api/resumes/${id}/restore`,
+        { method: 'POST' },
+      ),
     onSuccess: (data) => {
-      skipSave.current = true
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
       setBody(data.body)
+      setSaveStatus('saved')
       void queryClient.invalidateQueries({ queryKey: ['resume', id] })
+      void queryClient.invalidateQueries({ queryKey: ['resumes'] })
       toast.success('已恢复到上一版正文')
     },
     onError: (err) => toast.error(err.message),
@@ -122,10 +328,18 @@ function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
 
   async function saveTitle() {
     const next = title.trim()
-    if (!next || next === detail.title) return
+    if (!next) {
+      setTitle(detail.title)
+      return
+    }
+    if (next === detail.title) return
     try {
-      await api(`/api/resumes/${id}`, { method: 'PATCH', body: JSON.stringify({ title: next }) })
+      await api(`/api/resumes/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title: next }),
+      })
       void queryClient.invalidateQueries({ queryKey: ['resumes'] })
+      void queryClient.invalidateQueries({ queryKey: ['resume', id] })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '保存标题失败')
     }
@@ -144,6 +358,8 @@ function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
   }
 
   async function exportFile(format: 'pdf' | 'docx') {
+    if (exportingFormat !== null) return
+    setExportingFormat(format)
     try {
       const res = await fetch(`/api/resumes/${id}/export`, {
         method: 'POST',
@@ -163,170 +379,190 @@ function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
       URL.revokeObjectURL(url)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '导出失败')
+    } finally {
+      setExportingFormat(null)
     }
   }
 
-  const busy = chat.status === 'submitted' || chat.status === 'streaming'
   const configured = modelConfig.data?.configured === true
   const emptyBody = body.trim().length === 0
+  const aiSyncing = hasRunningWriteBodyTool(chat.messages)
 
-  const chatPane = (
-    <div className="flex h-full min-h-[320px] flex-col rounded-2xl border border-[#E7E9F3] bg-white">
-      <div className="flex items-center justify-between border-b border-[#E7E9F3] px-4 py-3">
-        <div>
-          <p className="text-sm font-bold">对话</p>
-          <p className="text-[12px] text-[#8C8FA8]">{emptyBody ? '创建模式' : '润色模式'}</p>
-        </div>
-        <Sparkles className="size-4 text-[#5A6ACF]" />
-      </div>
-      {!configured ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 text-center">
-          <p className="text-sm text-[#565A78]">还没有模型配置，对话不可用。</p>
-          <Link href="/account" className="inline-flex">
-            <Button className="h-10 bg-[#5A6ACF] hover:bg-[#4f5dbb]">去个人中心配置</Button>
-          </Link>
-        </div>
-      ) : (
-        <>
-          <div className="flex-1 space-y-3 overflow-auto p-4">
-            {chat.messages.length === 0 ? (
-              <p className="text-sm text-[#8C8FA8]">
-                {emptyBody ? '从姓名、经历、教育开始提问吧。' : '说说你想怎么改这篇正文。'}
-              </p>
-            ) : (
-              chat.messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    'max-w-[95%] rounded-xl px-3 py-2 text-sm leading-relaxed',
-                    message.role === 'user'
-                      ? 'ml-auto bg-[#5A6ACF] text-white'
-                      : 'bg-[#F6F7FB] text-[#14152B]',
-                  )}
-                >
-                  {messageText(message) || (message.role === 'assistant' ? '…' : '')}
-                </div>
-              ))
-            )}
-          </div>
-          <form
-            className="border-t border-[#E7E9F3] p-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              const text = draft.trim()
-              if (!text || busy) return
-              setDraft('')
-              void chat.sendMessage({ text })
-            }}
-          >
-            <Textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="输入消息"
-              className="min-h-20"
-            />
-            <Button
-              type="submit"
-              className="mt-2 h-10 w-full bg-[#5A6ACF] hover:bg-[#4f5dbb]"
-              disabled={busy || !draft.trim()}
-            >
-              {busy ? '生成中…' : '发送'}
-            </Button>
-          </form>
-        </>
-      )}
-    </div>
-  )
+  function handleInspectPreview() {
+    setRightPaneOpen(true)
+    setArtifactMode('preview')
+    setMobileTab('artifact')
+  }
 
-  const editorPane = (
-    <Textarea
-      value={body}
-      onChange={(event) => setBody(event.target.value)}
-      placeholder={`文首写姓名和联系方式，然后是：\n## 个人总结\n## 工作经历\n## 教育经历\n## 项目经历\n## 技能`}
-      className="h-full min-h-[320px] resize-none rounded-2xl border-[#E7E9F3] bg-white p-4 font-mono text-[13px] leading-relaxed"
-    />
-  )
+  const applyRightPaneWidth = useCallback((next: number) => {
+    const containerWidth = splitRef.current?.getBoundingClientRect().width ?? 0
+    const clamped = clampRightPaneWidth(next, containerWidth || next)
+    setRightPaneWidth(clamped)
+    persistRightPaneWidth(clamped)
+    return clamped
+  }, [])
 
-  const previewPane = <ResumePreview body={body} templateId={templateId} />
+  function handleResizePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const handle = event.currentTarget
+    handle.setPointerCapture(event.pointerId)
+    setResizing(true)
+  }
+
+  function handleResizePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    const container = splitRef.current?.getBoundingClientRect()
+    if (!container) return
+    applyRightPaneWidth(container.right - event.clientX)
+  }
+
+  function handleResizePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    setResizing(false)
+  }
+
+  function handleResizeKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      applyRightPaneWidth(rightPaneWidth + RESIZE_STEP)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      applyRightPaneWidth(rightPaneWidth - RESIZE_STEP)
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      applyRightPaneWidth(MIN_RIGHT_PANE)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      const containerWidth = splitRef.current?.getBoundingClientRect().width ?? 0
+      applyRightPaneWidth(containerWidth - MIN_CHAT_PANE)
+    }
+  }
 
   return (
-    <AppFrame
-      title={
-        <Input
-          aria-label="简历标题"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onBlur={() => void saveTitle()}
-          className="h-8 max-w-md border-transparent bg-transparent text-[16px] font-bold tracking-tight text-[#14152B] shadow-none focus-visible:border-[#E7E9F3] focus-visible:bg-white"
-        />
-      }
-      actions={
-        <>
-          <select
-            aria-label="模板"
-            className="h-10 rounded-lg border border-[#E7E9F3] bg-white px-3 text-sm"
-            value={templateId}
-            onChange={(event) => void changeTemplate(event.target.value as TemplateId)}
-          >
-            <option value="single">单栏</option>
-            <option value="double">双栏</option>
-          </select>
-          {detail.previousBody != null ? (
-            <Button variant="outline" className="h-10" onClick={() => restore.mutate()} disabled={restore.isPending}>
-              <RotateCcw />
-              恢复修订
-            </Button>
-          ) : null}
-          <Button variant="outline" className="h-10" onClick={() => void exportFile('pdf')}>
-            <Download />
-            PDF
-          </Button>
-          <Button variant="outline" className="h-10" onClick={() => void exportFile('docx')}>
-            <Download />
-            Word
-          </Button>
-          <Button
-            variant={chatOpen ? 'default' : 'outline'}
-            className={cn('h-10', chatOpen && 'bg-[#5A6ACF] hover:bg-[#4f5dbb]')}
-            onClick={() => {
-              setChatOpen((open) => !open)
-              setPane('chat')
-            }}
-          >
-            <MessageSquare />
-            对话
-          </Button>
-        </>
-      }
-    >
-      <div className="mb-3 flex gap-2 lg:hidden">
-        {(['chat', 'edit', 'preview'] as const).map((item) => (
-          <Button
-            key={item}
-            variant={pane === item ? 'default' : 'outline'}
-            className={cn('h-9', pane === item && 'bg-[#5A6ACF] hover:bg-[#4f5dbb]')}
-            onClick={() => setPane(item)}
-          >
-            {item === 'chat' ? '对话' : item === 'edit' ? '编辑' : '预览'}
-          </Button>
-        ))}
-      </div>
-
+    <AppFrame fullBleed>
       <div
+        ref={splitRef}
         className={cn(
-          'hidden h-[calc(100vh-8.5rem)] gap-4 lg:grid',
-          chatOpen
-            ? 'lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_minmax(280px,1fr)]'
-            : 'lg:grid-cols-[minmax(0,1fr)_minmax(280px,1fr)]',
+          'flex h-full w-full overflow-hidden',
+          resizing && 'cursor-col-resize select-none',
         )}
       >
-        {chatOpen ? chatPane : null}
-        {editorPane}
-        {previewPane}
-      </div>
+        {/* 中间栏：沉浸式简历 Agent 对话区 */}
+        <div
+          className={cn(
+            'h-full min-w-0 flex-1 overflow-hidden',
+            mobileTab === 'chat' ? 'flex' : 'hidden lg:flex',
+          )}
+        >
+          <AgentChatPane
+            title={title}
+            onTitleChange={setTitle}
+            onTitleSave={() => void saveTitle()}
+            emptyBody={emptyBody}
+            configured={configured}
+            configLoading={modelConfig.isLoading}
+            messages={chat.messages}
+            status={chat.status}
+            onSendMessage={(text) => void chat.sendMessage({ text })}
+            rightPaneOpen={rightPaneOpen}
+            onToggleRightPane={() => setRightPaneOpen((open) => !open)}
+            mobileTab={mobileTab}
+            onMobileTabChange={setMobileTab}
+            onInspectPreview={handleInspectPreview}
+          />
+        </div>
 
-      <div className="lg:hidden">
-        {pane === 'chat' ? chatPane : pane === 'edit' ? editorPane : previewPane}
+        {rightPaneOpen ? (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="调整对话栏与简历栏宽度"
+            aria-valuemin={MIN_RIGHT_PANE}
+            aria-valuemax={1200}
+            aria-valuenow={Math.round(rightPaneWidth)}
+            tabIndex={0}
+            onPointerDown={handleResizePointerDown}
+            onPointerMove={handleResizePointerMove}
+            onPointerUp={handleResizePointerUp}
+            onPointerCancel={handleResizePointerUp}
+            onKeyDown={handleResizeKeyDown}
+            className={cn(
+              'relative z-20 hidden w-px shrink-0 cursor-col-resize touch-none bg-border outline-none lg:block',
+              'before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:content-[""]',
+              'hover:before:w-0.5 hover:before:bg-[#5A6ACF] focus-visible:before:w-0.5 focus-visible:before:bg-[#5A6ACF]',
+              'after:absolute after:inset-y-0 after:-left-2 after:-right-2 after:content-[""]',
+              resizing && 'before:w-0.5 before:bg-[#5A6ACF]',
+            )}
+          />
+        ) : null}
+
+        {/* 最右栏：简历预览与 Markdown 源码合一面板 */}
+        <div
+          className={cn(
+            'h-full flex-col overflow-hidden bg-[#F6F7FB]',
+            mobileTab === 'artifact' ? 'flex w-full' : 'hidden',
+            rightPaneOpen
+              ? 'lg:flex lg:w-(--right-pane-width) lg:shrink-0'
+              : 'lg:hidden',
+          )}
+          style={
+            {
+              '--right-pane-width': `${rightPaneWidth}px`,
+            } as CSSProperties
+          }
+        >
+          {/* 小屏下处于「简历」视图时提供返回对话的顶栏切换 */}
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#E7E9F3] bg-white px-3 lg:hidden">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <AppFrameNavButtons />
+              <span className="truncate text-[14px] font-bold text-[#14152B]">
+                {title}
+              </span>
+            </div>
+            <div
+              role="tablist"
+              aria-label="工作区视图切换"
+              className="flex rounded-lg border border-[#E7E9F3] bg-[#F6F7FB] p-0.5"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={false}
+                onClick={() => setMobileTab('chat')}
+                className="rounded-md px-2.5 py-1 text-[12px] font-semibold text-[#565A78]"
+              >
+                对话
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={true}
+                onClick={() => setMobileTab('artifact')}
+                className="rounded-md bg-white px-2.5 py-1 text-[12px] font-semibold text-[#5A6ACF] shadow-2xs"
+              >
+                简历
+              </button>
+            </div>
+          </div>
+
+          <ResumeArtifactPane
+            mode={artifactMode}
+            onModeChange={setArtifactMode}
+            body={body}
+            onBodyChange={handleBodyChange}
+            templateId={templateId}
+            onTemplateChange={(next) => void changeTemplate(next)}
+            hasRevision={detail.previousBody != null}
+            restoring={restore.isPending}
+            onRestore={() => restore.mutate()}
+            exportingFormat={exportingFormat}
+            onExport={(format) => void exportFile(format)}
+            saveStatus={saveStatus}
+            aiSyncing={aiSyncing}
+          />
+        </div>
       </div>
     </AppFrame>
   )

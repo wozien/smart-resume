@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4F5CE5"/>
+      <stop offset="52%" stop-color="#635BFF"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#g)"/>
+  <rect x="12" y="16.5" width="30" height="36" rx="6" transform="rotate(-6 12 16.5)" fill="#fff" fill-opacity="0.22"/>
+  <rect x="13.5" y="13.5" width="31" height="38" rx="6.5" fill="#fff"/>
+  <circle cx="22" cy="23" r="3.4" fill="#5A6ACF"/>
+  <rect x="28" y="21" width="10.5" height="4" rx="2" fill="#5A6ACF"/>
+  <rect x="18.5" y="31.5" width="21" height="3.2" rx="1.6" fill="#5A6ACF" fill-opacity="0.86"/>
+  <rect x="18.5" y="37.8" width="17" height="3.2" rx="1.6" fill="#5A6ACF" fill-opacity="0.56"/>
+  <rect x="18.5" y="44" width="12.5" height="3.2" rx="1.6" fill="#5A6ACF" fill-opacity="0.38"/>
+  <path d="M46.5 8.5C46.5 14.9 49.4 17.8 55.8 17.8C49.4 17.8 46.5 20.7 46.5 27.1C46.5 20.7 43.6 17.8 37.2 17.8C43.6 17.8 46.5 14.9 46.5 8.5Z" fill="#fff"/>
+  <circle cx="53" cy="28.5" r="2" fill="#fff" fill-opacity="0.9"/>
+</svg>

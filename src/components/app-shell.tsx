@@ -1,251 +1,76 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FilePlus, LayoutGrid, List, Sparkles, Trash2, Upload } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useRef, useState, type ReactNode } from 'react'
-import { toast } from 'sonner'
-import { AppFrame } from '@/components/app-frame'
-import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  ArrowUp,
+  Code2,
+  FileText,
+  KeyRound,
+  Loader2,
+  Sparkles,
+  Upload,
+  Wand2,
+} from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useRef, useState } from 'react'
+import { toast } from 'sonner'
+import { AppFrame, AppFrameNavButtons } from '@/components/app-frame'
+import { BrandMark } from '@/components/brand-logo'
 import { api } from '@/lib/api'
 import { UNNAMED_TITLE } from '@/lib/constants'
-import { stripMd } from '@/lib/md-text'
-import type { ResumeListItem } from '@/lib/types'
+import { setPendingPrompt } from '@/lib/pending-prompt'
+import type { ModelConfigPublic } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-type ListView = 'card' | 'list'
+const QUICK_PROMPTS = [
+  {
+    label: '从零采访我，生成完整简历',
+    prompt: '我想从零创建一份中文简历，请一步步采访我的基本信息、工作经历、项目经历、教育背景和技能。',
+  },
+  {
+    label: '应届生挖掘实习与项目亮点',
+    prompt: '我是一名应届毕业生，经历较少，请通过提问帮我挖掘实习、课程项目和校园经历中的亮点并写成简历。',
+  },
+  {
+    label: '结合目标岗位 JD 定制简历',
+    prompt: '我想针对目标岗位定制一份高匹配度简历，请先询问我的目标岗位名称、JD 要求以及我现有的核心经历。',
+  },
+  {
+    label: '用 STAR 法则量化项目成果',
+    prompt: '我想重点打磨技术与项目经历，请引导我用 STAR 法则补充背景、行动与量化成果指标，生成专业简历。',
+  },
+] as const
 
-const LIST_VIEW_STORAGE_KEY = 'resume-list-view'
-
-function isListView(value: string | null): value is ListView {
-  return value === 'card' || value === 'list'
-}
-
-function readListView(): ListView {
-  try {
-    const stored = window.localStorage.getItem(LIST_VIEW_STORAGE_KEY)
-    return isListView(stored) ? stored : 'card'
-  } catch {
-    return 'card'
-  }
-}
-
-function persistListView(view: ListView) {
-  try {
-    window.localStorage.setItem(LIST_VIEW_STORAGE_KEY, view)
-  } catch {
-    // private mode / quota
-  }
-}
-
-function ViewToggle({
-  view,
-  onChange,
-}: {
-  view: ListView
-  onChange: (view: ListView) => void
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label="简历展示方式"
-      className="flex rounded-lg border border-[#E7E9F3] bg-[#F6F7FB] p-0.5"
-    >
-      <ViewToggleButton
-        pressed={view === 'card'}
-        label="卡片视图"
-        onSelect={() => onChange('card')}
-      >
-        <LayoutGrid />
-      </ViewToggleButton>
-      <ViewToggleButton
-        pressed={view === 'list'}
-        label="列表视图"
-        onSelect={() => onChange('list')}
-      >
-        <List />
-      </ViewToggleButton>
-    </div>
-  )
-}
-
-function ViewToggleButton({
-  pressed,
-  label,
-  onSelect,
-  children,
-}: {
-  pressed: boolean
-  label: string
-  onSelect: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={pressed}
-      aria-label={label}
-      className={cn(
-        'flex size-9 items-center justify-center rounded-md transition-colors duration-200 outline-none',
-        'focus-visible:ring-3 focus-visible:ring-[#5A6ACF]/40',
-        '[&_svg]:size-4',
-        pressed ? 'bg-white text-[#5A6ACF] shadow-sm' : 'text-[#8C8FA8] hover:text-[#565A78]',
-      )}
-      onClick={onSelect}
-    >
-      {children}
-    </button>
-  )
-}
-
-function A4Preview({ preview }: { preview: string }) {
-  const lines = preview
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map((line) => stripMd(line).trim())
-    .filter(Boolean)
-    .slice(0, 28)
-
-  if (lines.length === 0) {
-    return (
-      <div className="flex h-full flex-col px-[14%] pt-[16%]" aria-hidden>
-        {Array.from({ length: 8 }, (_, index) => (
-          <div
-            key={index}
-            className="mb-[3.2%] h-[2%] rounded-full bg-[#EEF0F5]"
-            style={{ width: index % 4 === 0 ? '48%' : index % 3 === 0 ? '82%' : '100%' }}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  return (
-    <div className="h-full overflow-hidden px-[13%] py-[11%]" aria-hidden>
-      {lines.map((line, index) => {
-        const heading = /^#{1,6}\s+/.test(line)
-        const text = line.replace(/^#{1,6}\s+/, '')
-        if (index === 0 && !heading) {
-          return (
-            <p key={index} className="mb-[5%] text-center text-[9px] leading-tight font-bold text-[#14152B]">
-              {text}
-            </p>
-          )
-        }
-        return (
-          <p
-            key={index}
-            className={cn(
-              'truncate',
-              heading
-                ? 'mt-[5%] mb-[1.5%] text-[7.5px] font-bold tracking-wide text-[#5A6ACF]'
-                : 'text-[6.5px] leading-[1.55] text-[#565A78]',
-            )}
-          >
-            {text}
-          </p>
-        )
-      })}
-    </div>
-  )
-}
-
-function ResumeCard({
-  item,
-  onOpen,
-  onDelete,
-}: {
-  item: ResumeListItem
-  onOpen: () => void
-  onDelete: () => void
-}) {
-  return (
-    <li className="group relative mx-auto w-full max-w-[176px]">
-      <button
-        type="button"
-        className="w-full text-center outline-none [&:focus-visible_[data-paper]]:ring-3 [&:focus-visible_[data-paper]]:ring-[#5A6ACF]/40"
-        aria-label={`打开 ${item.title}`}
-        onClick={onOpen}
-      >
-        <div
-          data-paper
-          className="relative aspect-[210/297] overflow-hidden rounded-md border border-[#E7E9F3] bg-white shadow-[0_1px_2px_rgba(20,21,43,.06),0_10px_24px_rgba(20,21,43,.08)] transition-shadow duration-200 group-hover:shadow-[0_12px_32px_rgba(20,21,43,.12)]"
-        >
-          <A4Preview preview={item.preview} />
-        </div>
-        <div className="mt-2.5 min-w-0">
-          <p className="truncate text-[14px] font-semibold text-[#14152B]">{item.title}</p>
-          <p className="mt-0.5 text-[12px] text-[#8C8FA8]">
-            {new Date(item.updatedAt).toLocaleString('zh-CN')}
-          </p>
-        </div>
-      </button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-1.5 right-1.5 size-9 bg-white/90 opacity-100 shadow-sm sm:opacity-0 sm:group-hover:opacity-100"
-        aria-label={`删除 ${item.title}`}
-        onClick={onDelete}
-      >
-        <Trash2 className="size-4 text-[#B42318]" />
-      </Button>
-    </li>
-  )
-}
-
-function ResumeRow({
-  item,
-  onOpen,
-  onDelete,
-}: {
-  item: ResumeListItem
-  onOpen: () => void
-  onDelete: () => void
-}) {
-  return (
-    <li className="group flex items-center gap-3 border-b border-[#F1F2F8] px-5 py-3.5 last:border-b-0 hover:bg-[#FAFBFF]">
-      <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
-        <p className="truncate text-sm font-semibold">{item.title}</p>
-        <p className="text-[13px] text-[#8C8FA8]">
-          {item.hasBody ? '已有正文' : '正文为空'} · {new Date(item.updatedAt).toLocaleString('zh-CN')}
-        </p>
-      </button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-9 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-        aria-label={`删除 ${item.title}`}
-        onClick={onDelete}
-      >
-        <Trash2 className="size-4 text-[#B42318]" />
-      </Button>
-    </li>
-  )
+function deriveTitleFromPrompt(text: string): string {
+  const cleaned = text.replace(/\s+/g, ' ').trim()
+  if (!cleaned) return UNNAMED_TITLE
+  return cleaned.length > 18 ? `${cleaned.slice(0, 18)}…` : cleaned
 }
 
 export default function AppShell() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [pendingDelete, setPendingDelete] = useState<ResumeListItem | null>(null)
-  const [view, setView] = useState<ListView>(readListView)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [draft, setDraft] = useState('')
+  const [pendingAction, setPendingAction] = useState<
+    'prompt' | 'import' | 'blank' | null
+  >(null)
 
-  const list = useQuery({
-    queryKey: ['resumes'],
-    queryFn: () => api<{ resumes: ResumeListItem[] }>('/api/resumes'),
+  const modelConfig = useQuery({
+    queryKey: ['model-config'],
+    queryFn: () => api<ModelConfigPublic>('/api/me/model-config'),
   })
 
   const create = useMutation({
-    mutationFn: (payload: { title?: string; body?: string; filename?: string; intent?: 'create' | 'blank' }) =>
+    mutationFn: (payload: {
+      title?: string
+      body?: string
+      filename?: string
+      initialPrompt?: string
+      mode?: 'source' | 'preview'
+    }) =>
       api<{ id: string }>('/api/resumes', {
         method: 'POST',
         body: JSON.stringify({
@@ -255,64 +80,81 @@ export default function AppShell() {
         }),
       }),
     onSuccess: (data, variables) => {
+      if (variables.initialPrompt) {
+        setPendingPrompt(data.id, variables.initialPrompt)
+      }
       void queryClient.invalidateQueries({ queryKey: ['resumes'] })
-      router.push(variables.intent === 'create' ? `/resumes/${data.id}?intent=create` : `/resumes/${data.id}`)
+      const query = variables.mode === 'source' ? '?mode=source' : ''
+      router.push(`/resumes/${data.id}${query}`)
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      setPendingAction(null)
+      toast.error(err.message)
+    },
   })
 
-  const remove = useMutation({
-    mutationFn: (id: string) => api(`/api/resumes/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      setPendingDelete(null)
-      void queryClient.invalidateQueries({ queryKey: ['resumes'] })
-      toast.success('已删除')
-    },
-    onError: (err) => toast.error(err.message),
-  })
+  function submitPrompt(text: string) {
+    const trimmed = text.trim()
+    if (!trimmed || create.isPending) return
+    setPendingAction('prompt')
+    create.mutate({
+      title: deriveTitleFromPrompt(trimmed),
+      body: '',
+      initialPrompt: trimmed,
+    })
+  }
 
   async function onPickFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.md')) {
       toast.error('只支持 Markdown（.md）文件')
       return
     }
-    const body = await file.text()
-    create.mutate({ filename: file.name, body })
+    setPendingAction('import')
+    try {
+      const body = await file.text()
+      create.mutate({ filename: file.name, body })
+    } catch {
+      setPendingAction(null)
+      toast.error('读取文件失败')
+    }
   }
 
-  function changeView(next: ListView) {
-    setView(next)
-    persistListView(next)
+  function handleCreateBlank() {
+    if (create.isPending) return
+    setPendingAction('blank')
+    create.mutate({
+      title: UNNAMED_TITLE,
+      body: '',
+      mode: 'source',
+    })
   }
 
-  const resumes = list.data?.resumes ?? []
+  const configured = modelConfig.data?.configured !== false
 
   return (
-    <AppFrame title="我的简历">
-      <div className="mb-6 flex flex-wrap gap-2">
-        <Button
-          className="h-10 bg-[#5A6ACF] hover:bg-[#4f5dbb]"
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload />
-          导入 Markdown
-        </Button>
-        <Button
-          variant="outline"
-          className="h-10 bg-white hover:bg-white"
-          onClick={() => create.mutate({ title: UNNAMED_TITLE, body: '', intent: 'create' })}
-        >
-          <Sparkles />
-          AI 从零创建
-        </Button>
-        <Button
-          variant="outline"
-          className="h-10 bg-white hover:bg-white"
-          onClick={() => create.mutate({ title: UNNAMED_TITLE, body: '', intent: 'blank' })}
-        >
-          <FilePlus />
-          空白编辑
-        </Button>
+    <AppFrame fullBleed>
+      <div className="relative flex h-full w-full flex-col overflow-hidden bg-linear-to-b from-[#FAFBFF] to-[#F6F7FB]">
+        {/* 轻量沉浸顶栏 */}
+        <header className="flex h-14 shrink-0 items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <AppFrameNavButtons />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-[12px] font-semibold text-[#565A78] ring-1 ring-[#E7E9F3]">
+              <Sparkles className="size-3.5 text-[#5A6ACF]" />
+              简历 Agent 工作台
+            </span>
+          </div>
+
+          {!modelConfig.isLoading && !configured ? (
+            <Link
+              href="/settings?tab=model"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#FFFAEB] px-3 py-1 text-[12px] font-medium text-[#B54708] ring-1 ring-[#F79009]/30 transition-colors hover:bg-[#FEF0C7]"
+            >
+              <KeyRound className="size-3.5" />
+              未配置模型密钥 · 去设置
+            </Link>
+          ) : null}
+        </header>
+
         <input
           ref={fileRef}
           type="file"
@@ -324,74 +166,161 @@ export default function AppShell() {
             if (file) void onPickFile(file)
           }}
         />
-      </div>
 
-      {list.isLoading ? (
-        <p className="text-sm text-[#8C8FA8]">加载中…</p>
-      ) : resumes.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#E7E9F3] bg-white px-6 py-16 text-center">
-          <p className="text-base font-semibold">还没有简历</p>
-          <p className="mt-1 text-sm text-[#8C8FA8]">导入一份 Markdown，或让 AI 从零采访你。</p>
-        </div>
-      ) : (
-        <div>
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-[15px] font-bold">全部简历</p>
-              <p className="text-[13px] text-[#8C8FA8]">按最近更新排列</p>
+        {/* 元宝风格居中欢迎区 */}
+        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 pb-6 sm:px-8">
+          <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
+            {/* 品牌 Agent 徽标与主问候语 */}
+            <div className="mb-3 flex items-center gap-3.5">
+              <BrandMark
+                size="lg"
+                className="shadow-[0_8px_24px_rgba(90,106,207,.28)]"
+              />
+              <h1 className="text-[24px] font-extrabold tracking-tight text-[#14152B] sm:text-[28px]">
+                今天能帮你打磨哪份简历？
+              </h1>
             </div>
-            <ViewToggle view={view} onChange={changeView} />
-          </div>
-          {view === 'card' ? (
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-x-5 gap-y-6">
-              {resumes.map((item) => (
-                <ResumeCard
-                  key={item.id}
-                  item={item}
-                  onOpen={() => router.push(`/resumes/${item.id}`)}
-                  onDelete={() => setPendingDelete(item)}
-                />
+            <p className="mb-7 max-w-xl text-center text-[13px] leading-relaxed text-[#8C8FA8]">
+              每份简历拥有独立的 Agent 对话上下文，支持从零采访生成、导入 Markdown 深度润色与实时排版预览
+            </p>
+
+            {/* 快捷指令气泡矩阵 */}
+            <div className="mb-10 flex max-w-2xl flex-wrap items-center justify-center gap-2.5">
+              {QUICK_PROMPTS.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  disabled={create.isPending}
+                  onClick={() => {
+                    if (!configured) {
+                      setDraft(item.prompt)
+                      textareaRef.current?.focus()
+                      return
+                    }
+                    submitPrompt(item.prompt)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E7E9F3] bg-white px-4 py-2 text-[13px] font-medium text-[#565A78] shadow-[0_1px_2px_rgba(20,21,43,.03)] transition-all hover:border-[#5A6ACF]/40 hover:bg-[#EEF0FF]/50 hover:text-[#14152B] disabled:opacity-50"
+                >
+                  <span>{item.label}</span>
+                </button>
               ))}
-            </ul>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-[#E7E9F3] bg-white">
-              <ul>
-                {resumes.map((item) => (
-                  <ResumeRow
-                    key={item.id}
-                    item={item}
-                    onOpen={() => router.push(`/resumes/${item.id}`)}
-                    onDelete={() => setPendingDelete(item)}
-                  />
-                ))}
-              </ul>
+              <button
+                type="button"
+                disabled={create.isPending}
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#E7E9F3] bg-white px-4 py-2 text-[13px] font-medium text-[#5A6ACF] shadow-[0_1px_2px_rgba(20,21,43,.03)] transition-all hover:border-[#5A6ACF]/40 hover:bg-[#EEF0FF]/70 disabled:opacity-50"
+              >
+                <Upload className="size-3.5" />
+                <span>导入本地 Markdown 简历进行润色 &gt;</span>
+              </button>
             </div>
-          )}
-        </div>
-      )}
 
-      <Dialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>删除这份简历？</DialogTitle>
-            <DialogDescription>
-              {pendingDelete?.title} 的正文、对话和修订会一起消失，无法恢复。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingDelete(null)}>
-              取消
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => pendingDelete && remove.mutate(pendingDelete.id)}
-              disabled={remove.isPending}
+            {/* 底部大尺寸悬浮对话输入舱 */}
+            <form
+              className="w-full"
+              onSubmit={(event) => {
+                event.preventDefault()
+                submitPrompt(draft)
+              }}
             >
-              删除
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <div className="rounded-3xl border border-[#E7E9F3] bg-white p-3.5 shadow-[0_6px_28px_rgba(20,21,43,.06)] transition-all focus-within:border-[#5A6ACF]/50 focus-within:shadow-[0_10px_36px_rgba(90,106,207,.13)]">
+                <textarea
+                  ref={textareaRef}
+                  rows={3}
+                  value={draft}
+                  disabled={create.isPending}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === 'Enter' &&
+                      !event.shiftKey &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault()
+                      submitPrompt(draft)
+                    }
+                  }}
+                  placeholder="发送消息开启新简历对话：输入目标岗位、个人经历，或直接粘贴简历初稿…"
+                  className="w-full resize-none bg-transparent px-1.5 py-1 text-[14px] leading-relaxed text-[#14152B] placeholder:text-[#8C8FA8] focus:outline-none disabled:opacity-60"
+                />
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={create.isPending}
+                      onClick={() => fileRef.current?.click()}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#E7E9F3] bg-[#F6F7FB] px-3 text-[12px] font-medium text-[#565A78] transition-colors hover:bg-[#EEF0FF] hover:text-[#5A6ACF] disabled:opacity-50"
+                    >
+                      {pendingAction === 'import' ? (
+                        <Loader2 className="size-3.5 animate-spin text-[#5A6ACF]" />
+                      ) : (
+                        <Upload className="size-3.5" />
+                      )}
+                      导入 Markdown
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={create.isPending}
+                      onClick={handleCreateBlank}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#E7E9F3] bg-[#F6F7FB] px-3 text-[12px] font-medium text-[#565A78] transition-colors hover:bg-[#EEF0FF] hover:text-[#5A6ACF] disabled:opacity-50"
+                    >
+                      {pendingAction === 'blank' ? (
+                        <Loader2 className="size-3.5 animate-spin text-[#5A6ACF]" />
+                      ) : (
+                        <Code2 className="size-3.5" />
+                      )}
+                      空白源码编辑
+                    </button>
+
+                    <span className="hidden items-center gap-1 rounded-full px-2.5 py-1 text-[12px] text-[#8C8FA8] sm:inline-flex">
+                      <Wand2 className="size-3.5 text-[#5A6ACF]" />
+                      自动创建简历并同步预览
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={create.isPending || !draft.trim()}
+                    aria-label="发送消息并创建简历"
+                    className={cn(
+                      'flex size-9 shrink-0 items-center justify-center rounded-full transition-all',
+                      draft.trim() && !create.isPending
+                        ? 'bg-[#5A6ACF] text-white shadow-xs hover:bg-[#4f5dbb]'
+                        : 'bg-[#EEF0F5] text-[#8C8FA8]',
+                    )}
+                  >
+                    {pendingAction === 'prompt' ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <ArrowUp className="size-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {create.isPending ? (
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#EEF0FF] px-3.5 py-1.5 text-[12px] font-medium text-[#5A6ACF]">
+                <Loader2 className="size-3.5 animate-spin" />
+                <span>
+                  {pendingAction === 'import'
+                    ? '正在导入简历并初始化工作台…'
+                    : pendingAction === 'blank'
+                      ? '正在创建空白简历工作台…'
+                      : '正在创建简历并进入 Agent 对话…'}
+                </span>
+              </div>
+            ) : (
+              <p className="mt-4 flex items-center gap-1.5 text-center text-[11px] text-[#8C8FA8]">
+                <FileText className="size-3" />
+                内容由 AI 辅助生成，每次修改自动保留上一版修订以便随时恢复
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </AppFrame>
   )
 }

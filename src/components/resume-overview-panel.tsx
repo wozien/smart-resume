@@ -1,13 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X } from "lucide-react";
+import { Loader2, Plus, Trash2, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { MonthPicker } from "@/components/month-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import {
@@ -50,7 +51,24 @@ export function ResumeOverviewPanel() {
   });
 
   if (query.isLoading) {
-    return <p className="text-sm text-[#8C8FA8]">加载中…</p>;
+    return (
+      <div className="flex flex-col gap-6" aria-label="正在加载简历概况">
+        {[0, 1, 2].map((index) => (
+          <section
+            key={index}
+            className="rounded-2xl border border-[#E7E9F3] bg-white p-6"
+          >
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="mt-2 h-3.5 w-56" />
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg" />
+            </div>
+            <Skeleton className="mt-4 h-10 w-20 rounded-lg" />
+          </section>
+        ))}
+      </div>
+    );
   }
   if (query.isError || !query.data) {
     return <p className="text-sm text-[#B42318]">概况加载失败，请刷新重试。</p>;
@@ -174,7 +192,14 @@ function SaveButton({
       disabled={saving}
       onClick={onClick}
     >
-      保存
+      {saving ? (
+        <>
+          <Loader2 className="size-4 animate-spin" />
+          保存中…
+        </>
+      ) : (
+        "保存"
+      )}
     </Button>
   );
 }
