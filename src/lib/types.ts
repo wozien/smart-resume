@@ -31,3 +31,46 @@ export type ModelConfigPublic = {
   baseUrl: string
   modelName: string
 }
+
+export type ResumeOverviewBasics = {
+  name: string
+  phone: string
+  email: string
+  city: string
+}
+
+export type ResumeOverviewWorkItem = {
+  id: string
+  company: string
+  title: string
+  startDate: string
+  endDate: string
+  description: string
+}
+
+export type ResumeOverviewProjectItem = {
+  id: string
+  name: string
+  role: string
+  startDate: string
+  endDate: string
+  description: string
+}
+
+export type ResumeOverviewEducationItem = {
+  id: string
+  school: string
+  degree: string
+  major: string
+  startDate: string
+  endDate: string
+}
+
+export type ResumeOverview = {
+  basics: ResumeOverviewBasics
+  work: ResumeOverviewWorkItem[]
+  projects: ResumeOverviewProjectItem[]
+  education: ResumeOverviewEducationItem[]
+  skills: string[]
+  summary: string
+}

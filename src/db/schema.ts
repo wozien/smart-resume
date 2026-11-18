@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -75,6 +75,56 @@ export const modelConfigs = pgTable('model_configs', {
   apiKeyEncrypted: text('api_key_encrypted').notNull(),
   baseUrl: text('base_url'),
   modelName: text('model_name').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+})
+
+export const resumeOverviews = pgTable('resume_overviews', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  basics: jsonb('basics')
+    .$type<{ name: string; phone: string; email: string; city: string }>()
+    .notNull(),
+  work: jsonb('work')
+    .$type<
+      {
+        id: string
+        company: string
+        title: string
+        startDate: string
+        endDate: string
+        description: string
+      }[]
+    >()
+    .notNull(),
+  projects: jsonb('projects')
+    .$type<
+      {
+        id: string
+        name: string
+        role: string
+        startDate: string
+        endDate: string
+        description: string
+      }[]
+    >()
+    .notNull(),
+  education: jsonb('education')
+    .$type<
+      {
+        id: string
+        school: string
+        degree: string
+        major: string
+        startDate: string
+        endDate: string
+      }[]
+    >()
+    .notNull(),
+  skills: jsonb('skills').$type<string[]>().notNull(),
+  summary: text('summary').notNull().default(''),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
     .notNull()
     .defaultNow(),
