@@ -1,0 +1,26 @@
+---
+description: 禁止编写 throwaway verify/check 脚本做验收
+alwaysApply: true
+---
+
+# 不要写验证脚本
+
+改功能、修 bug 时，**不要**为了验收而新建脚本文件。
+
+禁止：
+- 仓库内或 `.scratch/` 下的 `verify-*.mjs`、`check-*.mjs`、`*-hydration.mjs` 等一次性脚本
+- 为跑一遍 UI/hydration/侧栏而写的 Playwright、Puppeteer、Chrome CDP 脚本
+- 把临时验收脚本提交进 git
+
+正确做法：
+- 改完说明改了什么即可，由用户在浏览器里确认
+- 已有测试可以跑；没有测试就不要为验收现写 harness
+- 需要看页面时，只用 Cursor 内置浏览器工具；没有就跳过，不要自己造脚本补上
+
+```bash
+# ❌ BAD
+node .scratch/verify-sidebar.mjs
+
+# ✅ GOOD
+# 不新增验收文件；必要时运行项目已有的 pnpm test / pnpm lint
+```
