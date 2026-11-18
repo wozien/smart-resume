@@ -1,0 +1,31 @@
+---
+description: Git commit message 必须使用 Conventional Commits（feat: xxx）
+alwaysApply: true
+---
+
+# Commit message 格式
+
+用户要求创建 git commit 时，message **必须**是 Conventional Commits 单行（或首行为）`type: 摘要`。
+
+格式：`<type>: <摘要>`
+
+- `type` 只用小写：`feat` / `fix` / `docs` / `style` / `refactor` / `perf` / `test` / `chore`
+- 冒号后空一格，再写摘要
+- 摘要用中文或英文均可，一句话说清 **为什么**，不要只堆文件名
+- 不要句号结尾；不要 `WIP`、`update`、`fix bug` 这类空话
+- 需要范围时用 `feat(api): 摘要`，括号内小写短名
+
+```text
+# ❌ BAD
+update account page
+Fix bug
+feat：加了个功能
+feat: 修改了文件。
+
+# ✅ GOOD
+feat: 支持账号页修改显示名
+fix: 修复简历概览空状态不渲染
+chore: 约束 commit message 为 Conventional Commits
+```
+
+选择 type：新功能 `feat`；修缺陷 `fix`；文档 `docs`；格式无关逻辑 `style`；重构 `refactor`；性能 `perf`；测试 `test`；构建/依赖/规则等杂项 `chore`。
