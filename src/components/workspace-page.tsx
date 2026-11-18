@@ -257,7 +257,7 @@ function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           onBlur={() => void saveTitle()}
-          className="h-10 max-w-md border-transparent bg-transparent text-[20px] font-extrabold tracking-tight shadow-none focus-visible:border-[#E7E9F3] focus-visible:bg-white"
+          className="h-8 max-w-md border-transparent bg-transparent text-[16px] font-bold tracking-tight text-[#14152B] shadow-none focus-visible:border-[#E7E9F3] focus-visible:bg-white"
         />
       }
       actions={

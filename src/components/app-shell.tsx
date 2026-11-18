@@ -299,7 +299,7 @@ export default function AppShell() {
         </Button>
         <Button
           variant="outline"
-          className="h-10"
+          className="h-10 bg-white hover:bg-white"
           onClick={() => create.mutate({ title: UNNAMED_TITLE, body: '', intent: 'create' })}
         >
           <Sparkles />
@@ -307,7 +307,7 @@ export default function AppShell() {
         </Button>
         <Button
           variant="outline"
-          className="h-10"
+          className="h-10 bg-white hover:bg-white"
           onClick={() => create.mutate({ title: UNNAMED_TITLE, body: '', intent: 'blank' })}
         >
           <FilePlus />
