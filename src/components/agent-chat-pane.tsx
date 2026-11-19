@@ -309,7 +309,7 @@ export function AgentChatPane({
       </header>
 
       {/* 对话消息流 */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+      <div className="pane-scroll flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
           {configLoading ? (
             <div className="space-y-4 py-6" aria-label="正在加载对话配置">

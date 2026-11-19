@@ -248,3 +248,72 @@
   border-color: var(--toast-warning-border) !important;
   color: var(--toast-warning-text) !important;
 }
+
+/*
+ * 对话栏 / 简历栏滚动条：自定义后 Chromium 不再画 Windows 上下箭头，
+ * Firefox / Safari 也走同一套细滚动条，轨道色跟栏目背景对齐。
+ */
+.pane-scroll,
+.pane-scroll .cm-scroller {
+  --pane-scroll-thumb: #c5c8d8;
+  --pane-scroll-track: #f6f7fb;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pane-scroll-thumb) var(--pane-scroll-track);
+}
+
+.pane-scroll-surface,
+.pane-scroll-surface .cm-scroller {
+  --pane-scroll-track: #ffffff;
+}
+
+.pane-scroll::-webkit-scrollbar,
+.pane-scroll .cm-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.pane-scroll::-webkit-scrollbar-button,
+.pane-scroll .cm-scroller::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.pane-scroll::-webkit-scrollbar-track,
+.pane-scroll .cm-scroller::-webkit-scrollbar-track {
+  background: var(--pane-scroll-track);
+}
+
+.pane-scroll::-webkit-scrollbar-thumb,
+.pane-scroll .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: var(--pane-scroll-thumb);
+  border: 2px solid var(--pane-scroll-track);
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.pane-scroll::-webkit-scrollbar-thumb:hover,
+.pane-scroll .cm-scroller::-webkit-scrollbar-thumb:hover {
+  --pane-scroll-thumb: #a8acc0;
+}
+
+.pane-scroll::-webkit-scrollbar-corner,
+.pane-scroll .cm-scroller::-webkit-scrollbar-corner {
+  background: var(--pane-scroll-track);
+}
+
+.dark .pane-scroll,
+.dark .pane-scroll .cm-scroller {
+  --pane-scroll-thumb: #4a5168;
+  --pane-scroll-track: #0f111a;
+}
+
+.dark .pane-scroll-surface,
+.dark .pane-scroll-surface .cm-scroller {
+  --pane-scroll-track: #111420;
+}
+
+.dark .pane-scroll::-webkit-scrollbar-thumb:hover,
+.dark .pane-scroll .cm-scroller::-webkit-scrollbar-thumb:hover {
+  --pane-scroll-thumb: #5c6580;
+}

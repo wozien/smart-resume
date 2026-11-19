@@ -222,7 +222,7 @@ export function MarkdownSourceEditor({
         searchKeymap: true,
         autocompletion: false,
       }}
-      className="h-full flex-1 overflow-hidden [&_.cm-editor]:h-full"
+      className="pane-scroll pane-scroll-surface h-full flex-1 overflow-hidden [&_.cm-editor]:h-full"
     />
   )
 }
