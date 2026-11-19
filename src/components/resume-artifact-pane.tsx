@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   Check,
@@ -11,21 +11,21 @@ import {
   Loader2,
   RotateCcw,
   Sparkles,
-} from 'lucide-react'
-import { MarkdownSourceEditor } from '@/components/markdown-source-editor'
-import { ResumePreview } from '@/components/resume-preview'
-import { Button } from '@/components/ui/button'
+} from "lucide-react";
+import { MarkdownSourceEditor } from "@/components/markdown-source-editor";
+import { ResumePreview } from "@/components/resume-preview";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { NAMED_SECTIONS, type TemplateId } from '@/lib/constants'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/dropdown-menu";
+import { NAMED_SECTIONS, type TemplateId } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
-export type ArtifactMode = 'preview' | 'source'
-export type SaveStatus = 'idle' | 'saving' | 'saved'
+export type ArtifactMode = "preview" | "source";
+export type SaveStatus = "idle" | "saving" | "saved";
 
 export function ResumeArtifactPane({
   mode,
@@ -42,25 +42,26 @@ export function ResumeArtifactPane({
   saveStatus,
   aiSyncing = false,
 }: {
-  mode: ArtifactMode
-  onModeChange: (mode: ArtifactMode) => void
-  body: string
-  onBodyChange: (body: string) => void
-  templateId: TemplateId
-  onTemplateChange: (templateId: TemplateId) => void
-  hasRevision: boolean
-  restoring: boolean
-  onRestore: () => void
-  exportingFormat: 'pdf' | 'docx' | null
-  onExport: (format: 'pdf' | 'docx') => void
-  saveStatus: SaveStatus
-  aiSyncing?: boolean
+  mode: ArtifactMode;
+  onModeChange: (mode: ArtifactMode) => void;
+  body: string;
+  onBodyChange: (body: string) => void;
+  templateId: TemplateId;
+  onTemplateChange: (templateId: TemplateId) => void;
+  hasRevision: boolean;
+  restoring: boolean;
+  onRestore: () => void;
+  exportingFormat: "pdf" | "docx" | null;
+  onExport: (format: "pdf" | "docx") => void;
+  saveStatus: SaveStatus;
+  aiSyncing?: boolean;
 }) {
   function insertSectionHeading(sectionName: string) {
-    const heading = `## ${sectionName}\n`
-    if (body.includes(`## ${sectionName}`)) return
-    const prefix = body.trim().length === 0 ? '' : `${body.replace(/\s+$/, '')}\n\n`
-    onBodyChange(`${prefix}${heading}`)
+    const heading = `## ${sectionName}\n`;
+    if (body.includes(`## ${sectionName}`)) return;
+    const prefix =
+      body.trim().length === 0 ? "" : `${body.replace(/\s+$/, "")}\n\n`;
+    onBodyChange(`${prefix}${heading}`);
   }
 
   return (
@@ -76,13 +77,13 @@ export function ResumeArtifactPane({
             <button
               type="button"
               role="radio"
-              aria-checked={mode === 'preview'}
-              onClick={() => onModeChange('preview')}
+              aria-checked={mode === "preview"}
+              onClick={() => onModeChange("preview")}
               className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#5A6ACF]/40',
-                mode === 'preview'
-                  ? 'bg-white text-[#5A6ACF] shadow-2xs'
-                  : 'text-[#565A78] hover:text-[#14152B]',
+                "inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#5A6ACF]/40",
+                mode === "preview"
+                  ? "bg-white text-[#5A6ACF] shadow-2xs"
+                  : "text-[#565A78] hover:text-[#14152B]",
               )}
             >
               <Eye className="size-3.5" />
@@ -91,17 +92,17 @@ export function ResumeArtifactPane({
             <button
               type="button"
               role="radio"
-              aria-checked={mode === 'source'}
-              onClick={() => onModeChange('source')}
+              aria-checked={mode === "source"}
+              onClick={() => onModeChange("source")}
               className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#5A6ACF]/40',
-                mode === 'source'
-                  ? 'bg-white text-[#5A6ACF] shadow-2xs'
-                  : 'text-[#565A78] hover:text-[#14152B]',
+                "inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#5A6ACF]/40",
+                mode === "source"
+                  ? "bg-white text-[#5A6ACF] shadow-2xs"
+                  : "text-[#565A78] hover:text-[#14152B]",
               )}
             >
               <Code2 className="size-3.5" />
-              <span>Markdown 源码</span>
+              <span>Markdown</span>
             </button>
           </div>
 
@@ -110,12 +111,12 @@ export function ResumeArtifactPane({
               <Loader2 className="size-3 animate-spin" />
               AI 同步中…
             </span>
-          ) : saveStatus === 'saving' ? (
+          ) : saveStatus === "saving" ? (
             <span className="hidden items-center gap-1 text-[11px] text-[#8C8FA8] sm:inline-flex">
               <Loader2 className="size-3 animate-spin" />
               保存中…
             </span>
-          ) : saveStatus === 'saved' ? (
+          ) : saveStatus === "saved" ? (
             <span className="hidden items-center gap-1 text-[11px] text-[#027A48] sm:inline-flex">
               <Check className="size-3 text-[#12B76A]" />
               已保存
@@ -187,14 +188,14 @@ export function ResumeArtifactPane({
               className="w-40 rounded-xl border border-[#E7E9F3] bg-white p-1 shadow-lg"
             >
               <DropdownMenuItem
-                onClick={() => onExport('pdf')}
+                onClick={() => onExport("pdf")}
                 className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-[#14152B]"
               >
                 <FileText className="size-3.5 text-[#5A6ACF]" />
                 导出 PDF (.pdf)
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => onExport('docx')}
+                onClick={() => onExport("docx")}
                 className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-[#14152B]"
               >
                 <FileCode2 className="size-3.5 text-[#5A6ACF]" />
@@ -206,13 +207,13 @@ export function ResumeArtifactPane({
       </header>
 
       {/* 内容视图：预览 or Markdown 源码 */}
-      {mode === 'preview' ? (
+      {mode === "preview" ? (
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <ResumePreview
             body={body}
             templateId={templateId}
             aiSyncing={aiSyncing}
-            onSwitchToSource={() => onModeChange('source')}
+            onSwitchToSource={() => onModeChange("source")}
           />
         </div>
       ) : (
@@ -245,12 +246,12 @@ export function ResumeArtifactPane({
           {/* 底部轻量编辑器状态栏 */}
           <div className="flex h-7 shrink-0 items-center justify-between border-t border-[#F1F2F8] bg-[#FAFBFF] px-4 text-[11px] text-[#8C8FA8]">
             <span>
-              {body ? body.split('\n').length : 0} 行 · {body.length} 字符
+              {body ? body.split("\n").length : 0} 行 · {body.length} 字符
             </span>
             <span>Markdown · CodeMirror</span>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

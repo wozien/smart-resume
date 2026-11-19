@@ -106,7 +106,7 @@ export default function AppShell() {
 
   async function onPickFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.md')) {
-      toast.error('只支持 Markdown（.md）文件')
+      toast.warning('只支持 Markdown（.md）文件')
       return
     }
     setPendingAction('import')

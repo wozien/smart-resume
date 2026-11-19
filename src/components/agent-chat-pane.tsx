@@ -15,7 +15,7 @@ import {
   Wand2,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentPropsWithoutRef } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { AppFrameNavButtons } from '@/components/app-frame'
@@ -37,6 +37,14 @@ const POLISH_SUGGESTIONS = [
   '用 STAR 法则和量化指标强化我的工作与项目经历',
   '精简冗长表述，提炼更有说服力的个人总结',
 ] as const
+
+const markdownComponents = {
+  table: ({ children, ...props }: ComponentPropsWithoutRef<'table'>) => (
+    <div className="agent-chat-table-wrap">
+      <table {...props}>{children}</table>
+    </div>
+  ),
+}
 
 type WriteBodyToolPart = {
   type: string
@@ -398,7 +406,12 @@ export function AgentChatPane({
                     ) : text.trim() ? (
                       <div className="rounded-2xl rounded-tl-sm border border-[#E7E9F3] bg-white px-4 py-3 text-[14px] leading-relaxed text-[#14152B] shadow-[0_1px_3px_rgba(20,21,43,.03)]">
                         <div className="agent-chat-md">
-                          <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+                          <Markdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {text}
+                          </Markdown>
                         </div>
                         {isLast && status === 'streaming' ? (
                           <span
@@ -498,9 +511,16 @@ export function AgentChatPane({
       </div>
 
       <style>{`
-        .agent-chat-md h1, .agent-chat-md h2, .agent-chat-md h3 {
+        .agent-chat-md h1,
+        .agent-chat-md h2,
+        .agent-chat-md h3,
+        .agent-chat-md h4 {
           font-weight: 700;
-          margin: 0.45em 0 0.25em;
+          margin: 0.55em 0 0.3em;
+          color: #14152B;
+        }
+        .agent-chat-md strong {
+          font-weight: 700;
           color: #14152B;
         }
         .agent-chat-md p {
@@ -527,6 +547,7 @@ export function AgentChatPane({
         .agent-chat-md code {
           background: #F6F7FB;
           border: 1px solid #E7E9F3;
+          color: #14152B;
           border-radius: 4px;
           padding: 0.1em 0.35em;
           font-size: 12.5px;
@@ -534,6 +555,7 @@ export function AgentChatPane({
         .agent-chat-md pre {
           background: #F6F7FB;
           border: 1px solid #E7E9F3;
+          color: #14152B;
           border-radius: 8px;
           padding: 0.65em 0.85em;
           overflow-x: auto;
@@ -543,6 +565,95 @@ export function AgentChatPane({
           background: transparent;
           border: 0;
           padding: 0;
+          color: inherit;
+        }
+        .agent-chat-md hr {
+          border: 0;
+          height: 1px;
+          background: rgba(20, 21, 43, 0.07);
+          margin: 0.85em 0;
+        }
+        .agent-chat-table-wrap {
+          margin: 0.65em 0;
+          overflow-x: auto;
+          border: 1px solid #E7E9F3;
+          border-radius: 10px;
+          background: #FFFFFF;
+        }
+        .agent-chat-md table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+          line-height: 1.55;
+        }
+        .agent-chat-md th,
+        .agent-chat-md td {
+          padding: 0.55rem 0.75rem;
+          text-align: left;
+          vertical-align: middle;
+          border-right: 1px solid #E7E9F3;
+          border-bottom: 1px solid #E7E9F3;
+          min-width: 6.5rem;
+          color: #14152B;
+        }
+        .agent-chat-md th:last-child,
+        .agent-chat-md td:last-child {
+          border-right: 0;
+        }
+        .agent-chat-md tbody tr:last-child td {
+          border-bottom: 0;
+        }
+        .agent-chat-md thead th {
+          background: #F6F7FB;
+          font-weight: 600;
+          color: #14152B;
+          white-space: nowrap;
+        }
+        .agent-chat-md tbody tr {
+          background: #FFFFFF;
+        }
+        .agent-chat-md tbody tr:nth-child(even) {
+          background: #FAFBFF;
+        }
+
+        .dark .agent-chat-md h1,
+        .dark .agent-chat-md h2,
+        .dark .agent-chat-md h3,
+        .dark .agent-chat-md h4,
+        .dark .agent-chat-md strong {
+          color: #F8FAFC;
+        }
+        .dark .agent-chat-md code {
+          background: #1E2436;
+          border-color: #2B324B;
+          color: #E2E8F0;
+        }
+        .dark .agent-chat-md pre {
+          background: #0F111A;
+          border-color: #252B40;
+          color: #E2E8F0;
+        }
+        .dark .agent-chat-md hr {
+          background: rgba(255, 255, 255, 0.06);
+        }
+        .dark .agent-chat-table-wrap {
+          background: #121521;
+          border-color: #252B40;
+        }
+        .dark .agent-chat-md thead th {
+          background: #1B2032;
+          color: #F1F5F9;
+          border-color: #252B40;
+        }
+        .dark .agent-chat-md td {
+          color: #E2E8F0;
+          border-color: #252B40;
+        }
+        .dark .agent-chat-md tbody tr {
+          background: #121521;
+        }
+        .dark .agent-chat-md tbody tr:nth-child(even) {
+          background: #161A29;
         }
       `}</style>
     </div>

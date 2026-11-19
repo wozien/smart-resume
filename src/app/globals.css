@@ -64,6 +64,15 @@
   --accent: #eef0ff;
   --accent-foreground: #5a6acf;
   --destructive: #f04438;
+  --toast-success-bg: #ecfdf3;
+  --toast-success-border: #a6f4c5;
+  --toast-success-text: #027a48;
+  --toast-error-bg: #fef3f2;
+  --toast-error-border: #fecdca;
+  --toast-error-text: #b42318;
+  --toast-warning-bg: #fff6ed;
+  --toast-warning-border: #fdc6a3;
+  --toast-warning-text: #c4320a;
   --border: #e7e9f3;
   --input: #e7e9f3;
   --ring: #5a6acf;
@@ -99,6 +108,15 @@
   --accent: #1e2436;
   --accent-foreground: #a5b4fc;
   --destructive: oklch(0.704 0.191 22.216);
+  --toast-success-bg: #052e16;
+  --toast-success-border: #166534;
+  --toast-success-text: #86efac;
+  --toast-error-bg: #450a0a;
+  --toast-error-border: #7f1d1d;
+  --toast-error-text: #fca5a5;
+  --toast-warning-bg: #431407;
+  --toast-warning-border: #9a3412;
+  --toast-warning-text: #fdba74;
   --border: #23283b;
   --input: #23283b;
   --ring: #6366f1;
@@ -178,6 +196,24 @@
     background-color: #0f111a;
     border-color: #23283b;
   }
+  .dark .agent-chat-md hr {
+    border-color: #23283b;
+  }
+  .dark .agent-chat-table-wrap {
+    background-color: #161926;
+    border-color: #23283b;
+  }
+  .dark .agent-chat-md thead th {
+    background-color: #1e2436;
+    color: #f1f5f9;
+    border-color: #23283b;
+  }
+  .dark .agent-chat-md td {
+    border-color: #23283b;
+  }
+  .dark .agent-chat-md tbody tr:nth-child(even) {
+    background-color: rgba(30, 36, 54, 0.45);
+  }
 }
 
 @layer base {
@@ -193,4 +229,22 @@
   body {
     font-family: Inter, system-ui, sans-serif;
   }
+}
+
+[data-sonner-toast].cn-toast-success {
+  background: var(--toast-success-bg) !important;
+  border-color: var(--toast-success-border) !important;
+  color: var(--toast-success-text) !important;
+}
+
+[data-sonner-toast].cn-toast-error {
+  background: var(--toast-error-bg) !important;
+  border-color: var(--toast-error-border) !important;
+  color: var(--toast-error-text) !important;
+}
+
+[data-sonner-toast].cn-toast-warning {
+  background: var(--toast-warning-bg) !important;
+  border-color: var(--toast-warning-border) !important;
+  color: var(--toast-warning-text) !important;
 }
