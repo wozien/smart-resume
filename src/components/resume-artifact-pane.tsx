@@ -208,7 +208,7 @@ export function ResumeArtifactPane({
 
       {/* 内容视图：预览 or Markdown 源码 */}
       {mode === "preview" ? (
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="pane-scroll flex-1 overflow-y-auto p-4 sm:p-6">
           <ResumePreview
             body={body}
             templateId={templateId}

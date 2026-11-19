@@ -492,7 +492,7 @@ function WorkspaceReady({ id, detail }: { id: string; detail: ResumeDetail }) {
               'relative z-20 hidden w-px shrink-0 cursor-col-resize touch-none bg-border outline-none lg:block',
               'before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border before:content-[""]',
               'hover:before:w-0.5 hover:before:bg-[#5A6ACF] focus-visible:before:w-0.5 focus-visible:before:bg-[#5A6ACF]',
-              'after:absolute after:inset-y-0 after:-left-2 after:-right-2 after:content-[""]',
+              'after:absolute after:inset-y-0 after:left-0 after:-right-3 after:content-[""]',
               resizing && 'before:w-0.5 before:bg-[#5A6ACF]',
             )}
           />
